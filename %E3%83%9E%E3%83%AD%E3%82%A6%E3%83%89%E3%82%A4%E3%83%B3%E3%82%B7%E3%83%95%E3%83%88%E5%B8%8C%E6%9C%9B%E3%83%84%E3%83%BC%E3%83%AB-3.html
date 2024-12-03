@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>マロウドインシフト希望ツール</title>
+    <link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+</head>
+<body>
+    <h1>マロウドインシフト希望ツール</h1>
+    <div class="container">
+        <label for="year">希望する年度を数字で入力してください（例：2023）：</label>
+        <input type="number" id="year" min="2000" max="2100" placeholder="2023">
+        
+        <label for="month">希望する月を数字で入力してください（例：11）：</label>
+        <input type="number" id="month" min="1" max="12" placeholder="11">
+        
+        <label for="offDates">休みたい日の日付を入力してください（数字のみ、複数の場合はカンマで区切ってください）：</label>
+        <input type="text" id="offDates" placeholder="例：20,22,25,1,5">
+        
+        <button id="calculateButton">計算する</button>
+<button id="saveImageButton">画像として保存</button>
+    </div>
+    <div id="results">
+        <h2>休み希望日</h2>
+        <ul id="offDatesList"></ul>
+        
+        <h2>出勤可能日</h2>
+        <ul id="availableDatesList"></ul>
+    </div>
+    
+    <script>
+        document.getElementById('calculateButton').addEventListener('click', function() {
+            const yearInput = document.getElementById('year').value;
+            const monthInput = document.getElementById('month').value;
+            const offDatesInput = document.getElementById('offDates').value;
+            
+            const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
+            
+            let year = parseInt(yearInput);
+            let month = parseInt(monthInput);
+            
+            if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+                alert('正しい年度と月を入力してください。');
+                return;
+            }
+            
+            const startDay = 16;
+            const endDay = 15;
+            const startDate = new Date(year, month - 1, startDay);
+            let nextMonth = month === 12 ? 1 : month + 1;
+            let nextYear = month === 12 ? year + 1 : year;
+            const endDate = new Date(nextYear, nextMonth - 1, endDay);
+            
+            // 日付リストを生成
+            const dateList = [];
+            let currentDate = new Date(startDate);
+            while (currentDate <= endDate) {
+                dateList.push(new Date(currentDate));
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            
+            // 休みたい日を処理
+            const dateStrings = offDatesInput.split(',');
+            const offDates = [];
+            for (let dateStr of dateStrings) {
+                dateStr = dateStr.trim();
+                let day = parseInt(dateStr);
+                if (isNaN(day)) {
+                    alert(`正しい日付を入力してください：${dateStr}`);
+                    continue;
+                }
+                let dateAdded = false;
+                for (let [y, m] of [[year, month], [nextYear, nextMonth]]) {
+                    let date;
+                    try {
+                        date = new Date(y, m - 1, day);
+                        if (date >= startDate && date <= endDate) {
+                            offDates.push(date);
+                            dateAdded = true;
+                            break;
+                        }
+                    } catch {
+                        continue;
+                    }
+                }
+                if (!dateAdded) {
+                    alert(`指定した日付 ${day} は期間外か存在しません。`);
+                }
+            }
+            
+            // 重複を除去してソート
+            const offDatesSet = new Set(offDates.map(d => d.getTime()));
+            const offDatesSorted = Array.from(offDatesSet).sort((a, b) => a - b).map(t => new Date(t));
+            
+            // 出勤可能日を計算
+            const offDatesTimeSet = new Set(offDatesSorted.map(d => d.getTime()));
+            const availableDates = dateList.filter(d => !offDatesTimeSet.has(d.getTime()));
+            
+            // 結果を表示
+            const offDatesList = document.getElementById('offDatesList');
+            offDatesList.innerHTML = '';
+            for (let date of offDatesSorted) {
+                const li = document.createElement('li');
+                const weekday = weekdays[date.getDay()];
+                li.textContent = `${date.getFullYear()}-${('0' + (date.getMonth() + 1)).slice(-2)}-${('0' + date.getDate()).slice(-2)}（${weekday}）`;
+                offDatesList.appendChild(li);
+            }
+            
+            const availableDatesList = document.getElementById('availableDatesList');
+            availableDatesList.innerHTML = '';
+            for (let date of availableDates) {
+                const li = document.createElement('li');
+                const weekday = weekdays[date.getDay()];
+                li.textContent = `${date.getFullYear()}-${('0' + (date.getMonth() + 1)).slice(-2)}-${('0' + date.getDate()).slice(-2)}（${weekday}）`;
+                availableDatesList.appendChild(li);
+            }
+        });
+    </script>
+
+    <script>
+        document.getElementById('saveImageButton').addEventListener('click', function() {
+            const resultsElement = document.getElementById('results');
+            html2canvas(resultsElement).then(canvas => {
+                const link = document.createElement('a');
+                link.download = '出勤可能日結果.png';
+                link.href = canvas.toDataURL();
+                link.click();
+            });
+        });
+    </script>
+    </body>
+    
+</html>
